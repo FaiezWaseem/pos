@@ -7,20 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, ShoppingCart, Trash2, Plus, Minus, User, Table as TableIcon, CreditCard, Banknote, Globe, Package, X } from 'lucide-react';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
-    DialogTitle, 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
     DialogFooter,
-    DialogDescription 
+    DialogDescription
 } from "@/components/ui/dialog";
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -68,7 +68,7 @@ interface CartItem {
 
 export default function PosIndex({ categories, tables, areas, customers, restaurant_id }: Props) {
     const { auth } = usePage<SharedData>().props;
-    
+
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCategoryId, setActiveCategoryId] = useState<number | 'all'>('all');
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -77,7 +77,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
     const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in');
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'online'>('cash');
-    
+
     // Variation selection state
     const [isVariationDialogOpen, setIsVariationDialogOpen] = useState(false);
     const [selectedProductForVariation, setSelectedProductForVariation] = useState<Product | null>(null);
@@ -88,7 +88,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
 
     const filteredProducts = useMemo(() => {
         let products: Product[] = [];
-        
+
         if (activeCategoryId === 'all') {
             categories.forEach(cat => {
                 products = [...products, ...cat.products];
@@ -147,25 +147,25 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
 
     const calculateItemPrice = (): number => {
         if (!selectedProductForVariation) return 0;
-        
+
         let price = Number(selectedProductForVariation.price) || 0;
-        
+
         // Add size adjustment
         if (selectedSize) {
             price += Number(selectedSize.price_adjustment) || 0;
         }
-        
+
         // Add addons
         selectedAddons.forEach(addon => {
             price += (Number(addon.price) || 0) * addon.quantity;
         });
-        
+
         return price;
     };
 
     const confirmAddToCart = () => {
         if (!selectedProductForVariation) return;
-        
+
         const cartItem: CartItem = {
             product: selectedProductForVariation,
             quantity: 1,
@@ -173,7 +173,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
             size: selectedSize,
             addons: selectedAddons,
         };
-        
+
         setCart(prev => [...prev, cartItem]);
         setIsVariationDialogOpen(false);
         setSelectedProductForVariation(null);
@@ -278,9 +278,9 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     <div className="flex items-center gap-4 mb-4">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Search products..." 
-                                className="pl-10" 
+                            <Input
+                                placeholder="Search products..."
+                                className="pl-10"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -295,7 +295,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     </div>
 
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                        <Button 
+                        <Button
                             variant={activeCategoryId === 'all' ? 'default' : 'outline'}
                             onClick={() => setActiveCategoryId('all')}
                             className="whitespace-nowrap"
@@ -303,7 +303,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                             All Categories
                         </Button>
                         {categories.map(cat => (
-                            <Button 
+                            <Button
                                 key={cat.id}
                                 variant={activeCategoryId === cat.id ? 'default' : 'outline'}
                                 onClick={() => setActiveCategoryId(cat.id)}
@@ -317,8 +317,8 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     <ScrollArea className="flex-1">
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {filteredProducts.map(product => (
-                                <Card 
-                                    key={product.id} 
+                                <Card
+                                    key={product.id}
                                     className="cursor-pointer hover:border-primary transition-colors overflow-hidden flex flex-col"
                                     onClick={() => addToCart(product)}
                                 >
@@ -471,8 +471,8 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                             <span>Total</span>
                             <span className="text-primary">${Number(total || 0).toFixed(2)}</span>
                         </div>
-                        <Button 
-                            className="w-full h-12 text-lg font-bold" 
+                        <Button
+                            className="w-full h-12 text-lg font-bold"
                             disabled={cart.length === 0}
                             onClick={handleCheckout}
                         >
@@ -491,7 +491,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                             Select options for this item
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="py-4 space-y-6">
                         {/* Size Selection */}
                         {selectedProductForVariation?.sizes && selectedProductForVariation.sizes.length > 0 && (
@@ -531,7 +531,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                                     {selectedProductForVariation.addons.map(addon => {
                                         const selectedAddon = selectedAddons.find(a => a.id === addon.id);
                                         const price = Number(addon.price_override ?? addon.addon_product?.price ?? 0);
-                                        
+
                                         return (
                                             <div key={addon.id} className="flex items-center justify-between p-3 border rounded-lg">
                                                 <div className="flex-1">
@@ -607,7 +607,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                             Select payment method and finalize the order.
                         </DialogDescription>
                     </DialogHeader>
-                    
+
                     <div className="py-4 space-y-6">
                         <div className="flex justify-between items-center bg-muted p-4 rounded-lg">
                             <span className="font-medium text-muted-foreground">Amount to Pay</span>
@@ -617,7 +617,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                         <div className="space-y-3">
                             <Label>Payment Method</Label>
                             <div className="grid grid-cols-3 gap-3">
-                                <Button 
+                                <Button
                                     type="button"
                                     variant={paymentMethod === 'cash' ? 'default' : 'outline'}
                                     className="flex flex-col h-20 gap-2"
@@ -626,7 +626,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                                     <Banknote className="h-6 w-6" />
                                     <span>Cash</span>
                                 </Button>
-                                <Button 
+                                <Button
                                     type="button"
                                     variant={paymentMethod === 'card' ? 'default' : 'outline'}
                                     className="flex flex-col h-20 gap-2"
@@ -635,7 +635,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                                     <CreditCard className="h-6 w-6" />
                                     <span>Card</span>
                                 </Button>
-                                <Button 
+                                <Button
                                     type="button"
                                     variant={paymentMethod === 'online' ? 'default' : 'outline'}
                                     className="flex flex-col h-20 gap-2"
