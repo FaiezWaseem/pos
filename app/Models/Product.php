@@ -23,14 +23,17 @@ class Product extends Model
         'has_variations',
         'quantity',
         'track_quantity',
+        'stock_alert',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'cost' => 'decimal:2',
-        'is_available' => 'boolean',
+        'price'          => 'decimal:2',
+        'cost'           => 'decimal:2',
+        'is_available'   => 'boolean',
         'has_variations' => 'boolean',
         'track_quantity' => 'boolean',
+        'quantity'       => 'integer',
+        'stock_alert'    => 'integer',
     ];
 
     public function restaurant(): BelongsTo
@@ -76,6 +79,25 @@ class Product extends Model
             return true;
         }
         return $this->quantity > 0;
+    }
+
+    /**
+     * Check if product is low on stock
+     */
+    public function isLowStock(): bool
+    {
+        if (!$this->track_quantity || $this->quantity === null) {
+            return false;
+        }
+        return $this->quantity <= ($this->stock_alert ?? 5);
+    }
+
+    /**
+     * Stock adjustment logs
+     */
+    public function stockLogs(): HasMany
+    {
+        return $this->hasMany(StockLog::class)->latest();
     }
 
     /**

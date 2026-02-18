@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Customer;
 use App\Models\Payment;
+use App\Models\StockLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -120,15 +121,33 @@ class PosController extends Controller
                 }
 
                 OrderItem::create([
-                    'order_id' => $order->id,
+                    'order_id'   => $order->id,
                     'product_id' => $item['product_id'],
-                    'size_id' => $item['size_id'] ?? null,
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'total' => $item['quantity'] * $item['price'],
-                    'notes' => $item['notes'] ?? null,
-                    'addons' => $addonsData,
+                    'size_id'    => $item['size_id'] ?? null,
+                    'quantity'   => $item['quantity'],
+                    'price'      => $item['price'],
+                    'total'      => $item['quantity'] * $item['price'],
+                    'notes'      => $item['notes'] ?? null,
+                    'addons'     => $addonsData,
                 ]);
+
+                // Auto-deduct stock if tracking is enabled
+                $product = Product::find($item['product_id']);
+                if ($product && $product->track_quantity && $product->quantity !== null) {
+                    $before = $product->quantity;
+                    $after  = max(0, $before - $item['quantity']);
+                    $product->update(['quantity' => $after]);
+                    StockLog::create([
+                        'product_id'      => $product->id,
+                        'user_id'         => auth()->id(),
+                        'order_id'        => $order->id,
+                        'quantity_before'  => $before,
+                        'quantity_change'  => -$item['quantity'],
+                        'quantity_after'   => $after,
+                        'type'            => 'sale',
+                        'note'            => "Sold via order {$order->order_number}",
+                    ]);
+                }
             }
 
             // 3. Create Payment

@@ -68,11 +68,15 @@ A full-featured, multi-tenant Point of Sale system built with **Laravel + Inerti
 - [x] Orders by hour of day (hourly distribution chart)
 - [x] Top 10 best-selling products with ranked progress bars
 
-### 📦 Inventory Stock Tracking
-- [ ] Stock quantity per product
-- [ ] Auto-deduct stock on sale
-- [ ] Low stock alerts
-- [ ] Stock adjustment logs
+### 📦 Inventory Stock Tracking ✅
+- [x] `track_quantity` flag per product (opt-in tracking)
+- [x] `stock_alert` threshold per product (configurable low-stock level)
+- [x] Auto-deduct stock on every POS sale (inside DB transaction)
+- [x] Manual stock adjustments (restock / correction) with dialog
+- [x] Stock log history per product (before/after, type, user, order ref)
+- [x] Stock Management page with summary KPIs (total / ok / low / out)
+- [x] Mini stock bar indicators in product rows
+- [x] Filterable by status (In Stock / Low / Out) and restaurant
 
 ### 🎟️ Discounts & Promotions
 - [ ] Order-level percentage / fixed discounts

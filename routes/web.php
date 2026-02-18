@@ -8,6 +8,7 @@ use App\Http\Controllers\SuperAdmin\RoleController;
 use App\Http\Controllers\SuperAdmin\UserController;
 use App\Http\Controllers\Inventory\CategoryController;
 use App\Http\Controllers\Inventory\ProductController;
+use App\Http\Controllers\Inventory\StockController;
 use App\Http\Controllers\Staff\EmployeeController;
 use App\Http\Controllers\Restaurant\AreaController;
 use App\Http\Controllers\Restaurant\TableController;
@@ -45,6 +46,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::resource('categories', CategoryController::class);
         Route::resource('products', ProductController::class);
+
+        // Stock Management
+        Route::get('stock', [StockController::class, 'index'])->name('stock.index');
+        Route::post('stock/{product}/adjust', [StockController::class, 'adjust'])->name('stock.adjust');
+        Route::get('stock/{product}/logs', [StockController::class, 'logs'])->name('stock.logs');
     });
 
     // Staff Management Routes
