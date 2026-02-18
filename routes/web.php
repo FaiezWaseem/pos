@@ -13,6 +13,7 @@ use App\Http\Controllers\Restaurant\AreaController;
 use App\Http\Controllers\Restaurant\TableController;
 use App\Http\Controllers\Restaurant\SwitchController;
 use App\Http\Controllers\Pos\PosController;
+use App\Http\Controllers\Pos\OrderController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -62,6 +63,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('index');
         Route::post('/order', [PosController::class, 'store'])->name('store');
         Route::get('/receipt/{order}', [PosController::class, 'receipt'])->name('receipt');
+
+        // Order History
+        Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+        Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
     });
 });
 
