@@ -11,7 +11,7 @@ use Inertia\Inertia;
 
 class TableController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $query = Table::with(['restaurant', 'area']);
 
@@ -19,8 +19,28 @@ class TableController extends Controller
             $query->where('restaurant_id', session('active_restaurant_id'));
         }
 
+        if ($search = $request->input('search')) {
+            $query->where('table_number', 'like', "%{$search}%");
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('area_id')) {
+            $query->where('area_id', $request->input('area_id'));
+        }
+
+        // Pass areas for the filter dropdown (scoped to restaurant)
+        $areasQuery = Area::query();
+        if (!auth()->user()->isSuperAdmin()) {
+            $areasQuery->where('restaurant_id', session('active_restaurant_id'));
+        }
+
         return Inertia::render('restaurant/tables/index', [
-            'tables' => $query->latest()->get()
+            'tables'  => $query->latest()->get(),
+            'areas'   => $areasQuery->orderBy('name')->get(),
+            'filters' => $request->only(['search', 'status', 'area_id']),
         ]);
     }
 

@@ -13,10 +13,26 @@ class RestaurantController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $query = Restaurant::with('company');
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('address', 'like', "%{$search}%")
+                  ->orWhereHas('company', fn($c) => $c->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->input('status') === 'active');
+        }
+
         return Inertia::render('super-admin/restaurants/index', [
-            'restaurants' => Restaurant::with('company')->latest()->get(),
+            'restaurants' => $query->latest()->get(),
+            'filters'     => $request->only(['search', 'status']),
         ]);
     }
 

@@ -10,7 +10,7 @@ use Inertia\Inertia;
 
 class AreaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $query = Area::with(['restaurant']);
 
@@ -18,8 +18,16 @@ class AreaController extends Controller
             $query->where('restaurant_id', session('active_restaurant_id'));
         }
 
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
         return Inertia::render('restaurant/areas/index', [
-            'areas' => $query->latest()->get()
+            'areas'   => $query->latest()->get(),
+            'filters' => $request->only(['search']),
         ]);
     }
 

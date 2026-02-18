@@ -9,10 +9,21 @@ use Inertia\Inertia;
 
 class CompanyController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $query = Company::with('owner');
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
         return Inertia::render('super-admin/companies/index', [
-            'companies' => Company::with('owner')->latest()->get(),
+            'companies' => $query->latest()->get(),
+            'filters'   => $request->only(['search']),
         ]);
     }
 

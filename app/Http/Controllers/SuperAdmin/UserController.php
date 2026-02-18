@@ -13,10 +13,25 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $query = User::with(['role', 'company', 'restaurants']);
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($roleId = $request->input('role_id')) {
+            $query->where('role_id', $roleId);
+        }
+
         return Inertia::render('super-admin/users/index', [
-            'users' => User::with(['role', 'company', 'restaurants'])->latest()->get(),
+            'users'   => $query->latest()->get(),
+            'roles'   => Role::orderBy('label')->get(),
+            'filters' => $request->only(['search', 'role_id']),
         ]);
     }
 

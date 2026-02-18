@@ -1,46 +1,55 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Product, Restaurant, SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Package, Search } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Package, Search, X } from 'lucide-react';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { router } from '@inertiajs/react';
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Inventory',
-        href: '/inventory/categories',
-    },
-    {
-        title: 'Products',
-        href: '/inventory/products',
-    },
+    { title: 'Inventory', href: '/inventory/categories' },
+    { title: 'Products', href: '/inventory/products' },
 ];
 
 interface Props {
     products: Product[];
     restaurants: Restaurant[];
-    filters: {
-        restaurant_id?: string;
-    };
+    filters: { restaurant_id?: string; search?: string; status?: string };
 }
 
 export default function ProductIndex({ products, restaurants, filters }: Props) {
     const { auth } = usePage<SharedData>().props;
     const isSuperAdmin = auth.user?.role?.name === 'super_admin';
 
-    const handleRestaurantFilter = (value: string) => {
-        router.get('/inventory/products', { restaurant_id: value === 'all' ? '' : value }, { preserveState: true });
-    };
+    const [search, setSearch] = useState(filters.search ?? '');
+    const [status, setStatus] = useState(filters.status ?? 'all');
+    const [restaurantId, setRestaurantId] = useState(filters.restaurant_id ?? 'all');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const applyFilters = useCallback((params: Record<string, string>) => {
+        router.get('/inventory/products', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            const params: Record<string, string> = {};
+            if (search) params.search = search;
+            if (status !== 'all') params.status = status;
+            if (restaurantId !== 'all') params.restaurant_id = restaurantId;
+            applyFilters(params);
+        }, 350);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [search, status, restaurantId]);
 
     const deleteProduct = (id: number) => {
         if (confirm('Are you sure you want to delete this product?')) {
@@ -52,6 +61,9 @@ export default function ProductIndex({ products, restaurants, filters }: Props) 
         const symbol = restaurant?.currency_symbol || '$';
         return `${symbol}${Number(amount).toFixed(2)}`;
     };
+
+    const clearFilters = () => { setSearch(''); setStatus('all'); setRestaurantId('all'); };
+    const hasFilters = search || status !== 'all' || restaurantId !== 'all';
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -71,28 +83,53 @@ export default function ProductIndex({ products, restaurants, filters }: Props) 
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                             <CardTitle>All Products</CardTitle>
-                            {isSuperAdmin && (
-                                <div className="flex items-center gap-2 w-full max-w-xs">
-                                    <Select 
-                                        defaultValue={filters.restaurant_id || 'all'} 
-                                        onValueChange={handleRestaurantFilter}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Filter by Restaurant" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative min-w-[200px]">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        id="product-search"
+                                        placeholder="Search products..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-9 pr-9 h-9"
+                                    />
+                                    {search && (
+                                        <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <Select value={status} onValueChange={setStatus}>
+                                    <SelectTrigger id="product-status-filter" className="w-[150px] h-9">
+                                        <SelectValue placeholder="Availability" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All</SelectItem>
+                                        <SelectItem value="available">Available</SelectItem>
+                                        <SelectItem value="unavailable">Unavailable</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {isSuperAdmin && (
+                                    <Select value={restaurantId} onValueChange={setRestaurantId}>
+                                        <SelectTrigger id="product-restaurant-filter" className="w-[180px] h-9">
+                                            <SelectValue placeholder="All Restaurants" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Restaurants</SelectItem>
-                                            {restaurants.map((restaurant) => (
-                                                <SelectItem key={restaurant.id} value={restaurant.id.toString()}>
-                                                    {restaurant.name}
-                                                </SelectItem>
+                                            {restaurants.map((r) => (
+                                                <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                </div>
-                            )}
+                                )}
+                                {hasFilters && (
+                                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-9">
+                                        <X className="mr-1 h-3 w-3" /> Clear
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -115,11 +152,7 @@ export default function ProductIndex({ products, restaurants, filters }: Props) 
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
                                                         {product.image ? (
-                                                            <img 
-                                                                src={`/storage/${product.image}`} 
-                                                                alt={product.name} 
-                                                                className="h-10 w-10 rounded-md object-cover border border-sidebar-border/50" 
-                                                            />
+                                                            <img src={`/storage/${product.image}`} alt={product.name} className="h-10 w-10 rounded-md object-cover border border-sidebar-border/50" />
                                                         ) : (
                                                             <div className="h-10 w-10 rounded-md bg-sidebar-accent flex items-center justify-center border border-sidebar-border/50">
                                                                 <Package className="h-5 w-5 text-muted-foreground" />
@@ -133,17 +166,9 @@ export default function ProductIndex({ products, restaurants, filters }: Props) 
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-muted-foreground">
-                                                    {product.category?.name || 'N/A'}
-                                                </td>
-                                                <td className="px-4 py-3 font-medium">
-                                                    {formatCurrency(product.price, product.restaurant)}
-                                                </td>
-                                                {isSuperAdmin && (
-                                                    <td className="px-4 py-3 text-muted-foreground">
-                                                        {product.restaurant?.name || 'N/A'}
-                                                    </td>
-                                                )}
+                                                <td className="px-4 py-3 text-muted-foreground">{product.category?.name || 'N/A'}</td>
+                                                <td className="px-4 py-3 font-medium">{formatCurrency(product.price, product.restaurant)}</td>
+                                                {isSuperAdmin && <td className="px-4 py-3 text-muted-foreground">{product.restaurant?.name || 'N/A'}</td>}
                                                 <td className="px-4 py-3 text-center">
                                                     <Badge variant={product.is_available ? 'default' : 'secondary'}>
                                                         {product.is_available ? 'Available' : 'Unavailable'}
@@ -151,18 +176,10 @@ export default function ProductIndex({ products, restaurants, filters }: Props) 
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <Button variant="ghost" size="icon" asChild title="Edit">
-                                                            <Link href={`/inventory/products/${product.id}/edit`}>
-                                                                <Edit className="h-4 w-4" />
-                                                            </Link>
+                                                        <Button variant="ghost" size="icon" asChild>
+                                                            <Link href={`/inventory/products/${product.id}/edit`}><Edit className="h-4 w-4" /></Link>
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="text-destructive hover:text-destructive"
-                                                            onClick={() => deleteProduct(product.id)}
-                                                            title="Delete"
-                                                        >
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteProduct(product.id)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -172,13 +189,18 @@ export default function ProductIndex({ products, restaurants, filters }: Props) 
                                     ) : (
                                         <tr>
                                             <td colSpan={isSuperAdmin ? 6 : 5} className="px-4 py-8 text-center text-muted-foreground">
-                                                No products found.
+                                                {hasFilters ? 'No products match your search criteria.' : 'No products found.'}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+                        {hasFilters && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {products.length} result{products.length !== 1 ? 's' : ''} found
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

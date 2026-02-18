@@ -17,14 +17,25 @@ class CategoryController extends Controller
 
         if (!auth()->user()->isSuperAdmin()) {
             $query->where('restaurant_id', session('active_restaurant_id'));
-        } elseif ($request->has('restaurant_id')) {
+        } elseif ($request->filled('restaurant_id')) {
             $query->where('restaurant_id', $request->restaurant_id);
         }
 
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->input('status') === 'active');
+        }
+
         return Inertia::render('inventory/categories/index', [
-            'categories' => $query->latest()->get(),
+            'categories'  => $query->latest()->get(),
             'restaurants' => auth()->user()->isSuperAdmin() ? Restaurant::all() : [],
-            'filters' => $request->only(['restaurant_id']),
+            'filters'     => $request->only(['restaurant_id', 'search', 'status']),
         ]);
     }
 

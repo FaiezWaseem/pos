@@ -1,46 +1,55 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Category, Restaurant, SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Layers, Search } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Search, X } from 'lucide-react';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { router } from '@inertiajs/react';
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Inventory',
-        href: '/inventory/categories',
-    },
-    {
-        title: 'Categories',
-        href: '/inventory/categories',
-    },
+    { title: 'Inventory', href: '/inventory/categories' },
+    { title: 'Categories', href: '/inventory/categories' },
 ];
 
 interface Props {
     categories: Category[];
     restaurants: Restaurant[];
-    filters: {
-        restaurant_id?: string;
-    };
+    filters: { restaurant_id?: string; search?: string; status?: string };
 }
 
 export default function CategoryIndex({ categories, restaurants, filters }: Props) {
     const { auth } = usePage<SharedData>().props;
     const isSuperAdmin = auth.user?.role?.name === 'super_admin';
 
-    const handleRestaurantFilter = (value: string) => {
-        router.get('/inventory/categories', { restaurant_id: value === 'all' ? '' : value }, { preserveState: true });
-    };
+    const [search, setSearch] = useState(filters.search ?? '');
+    const [status, setStatus] = useState(filters.status ?? 'all');
+    const [restaurantId, setRestaurantId] = useState(filters.restaurant_id ?? 'all');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const applyFilters = useCallback((params: Record<string, string>) => {
+        router.get('/inventory/categories', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            const params: Record<string, string> = {};
+            if (search) params.search = search;
+            if (status !== 'all') params.status = status;
+            if (restaurantId !== 'all') params.restaurant_id = restaurantId;
+            applyFilters(params);
+        }, 350);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [search, status, restaurantId]);
 
     const deleteCategory = (id: number) => {
         if (confirm('Are you sure you want to delete this category?')) {
@@ -48,9 +57,12 @@ export default function CategoryIndex({ categories, restaurants, filters }: Prop
         }
     };
 
+    const clearFilters = () => { setSearch(''); setStatus('all'); setRestaurantId('all'); };
+    const hasFilters = search || status !== 'all' || restaurantId !== 'all';
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Product Categories" />
+            <Head title="Categories" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -66,28 +78,53 @@ export default function CategoryIndex({ categories, restaurants, filters }: Prop
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                             <CardTitle>All Categories</CardTitle>
-                            {isSuperAdmin && (
-                                <div className="flex items-center gap-2 w-full max-w-xs">
-                                    <Select 
-                                        defaultValue={filters.restaurant_id || 'all'} 
-                                        onValueChange={handleRestaurantFilter}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Filter by Restaurant" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative min-w-[200px]">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        id="category-search"
+                                        placeholder="Search categories..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-9 pr-9 h-9"
+                                    />
+                                    {search && (
+                                        <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <Select value={status} onValueChange={setStatus}>
+                                    <SelectTrigger id="category-status-filter" className="w-[140px] h-9">
+                                        <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {isSuperAdmin && (
+                                    <Select value={restaurantId} onValueChange={setRestaurantId}>
+                                        <SelectTrigger id="category-restaurant-filter" className="w-[180px] h-9">
+                                            <SelectValue placeholder="All Restaurants" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Restaurants</SelectItem>
-                                            {restaurants.map((restaurant) => (
-                                                <SelectItem key={restaurant.id} value={restaurant.id.toString()}>
-                                                    {restaurant.name}
-                                                </SelectItem>
+                                            {restaurants.map((r) => (
+                                                <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                </div>
-                            )}
+                                )}
+                                {hasFilters && (
+                                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-9">
+                                        <X className="mr-1 h-3 w-3" /> Clear
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -106,30 +143,9 @@ export default function CategoryIndex({ categories, restaurants, filters }: Prop
                                     {categories.length > 0 ? (
                                         categories.map((category) => (
                                             <tr key={category.id} className="hover:bg-sidebar-accent/30 transition-colors">
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-3">
-                                                        {category.image ? (
-                                                            <img 
-                                                                src={`/storage/${category.image}`} 
-                                                                alt={category.name} 
-                                                                className="h-10 w-10 rounded-md object-cover border border-sidebar-border/50" 
-                                                            />
-                                                        ) : (
-                                                            <div className="h-10 w-10 rounded-md bg-sidebar-accent flex items-center justify-center border border-sidebar-border/50">
-                                                                <Layers className="h-5 w-5 text-muted-foreground" />
-                                                            </div>
-                                                        )}
-                                                        <span className="font-medium">{category.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">
-                                                    {category.description || '-'}
-                                                </td>
-                                                {isSuperAdmin && (
-                                                    <td className="px-4 py-3 text-muted-foreground">
-                                                        {category.restaurant?.name || 'N/A'}
-                                                    </td>
-                                                )}
+                                                <td className="px-4 py-3 font-medium">{category.name}</td>
+                                                <td className="px-4 py-3 text-muted-foreground">{category.description || '-'}</td>
+                                                {isSuperAdmin && <td className="px-4 py-3 text-muted-foreground">{category.restaurant?.name || 'N/A'}</td>}
                                                 <td className="px-4 py-3 text-center">
                                                     <Badge variant={category.is_active ? 'default' : 'secondary'}>
                                                         {category.is_active ? 'Active' : 'Inactive'}
@@ -137,18 +153,10 @@ export default function CategoryIndex({ categories, restaurants, filters }: Prop
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <Button variant="ghost" size="icon" asChild title="Edit">
-                                                            <Link href={`/inventory/categories/${category.id}/edit`}>
-                                                                <Edit className="h-4 w-4" />
-                                                            </Link>
+                                                        <Button variant="ghost" size="icon" asChild>
+                                                            <Link href={`/inventory/categories/${category.id}/edit`}><Edit className="h-4 w-4" /></Link>
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="text-destructive hover:text-destructive"
-                                                            onClick={() => deleteCategory(category.id)}
-                                                            title="Delete"
-                                                        >
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteCategory(category.id)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -158,13 +166,18 @@ export default function CategoryIndex({ categories, restaurants, filters }: Prop
                                     ) : (
                                         <tr>
                                             <td colSpan={isSuperAdmin ? 5 : 4} className="px-4 py-8 text-center text-muted-foreground">
-                                                No categories found.
+                                                {hasFilters ? 'No categories match your search criteria.' : 'No categories found.'}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+                        {hasFilters && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {categories.length} result{categories.length !== 1 ? 's' : ''} found
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

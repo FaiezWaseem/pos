@@ -1,20 +1,16 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, MapPin } from 'lucide-react';
-import { router } from '@inertiajs/react';
+import { Input } from '@/components/ui/input';
+import { Plus, Edit, Trash2, MapPin, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router as inertiaRouter } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Restaurant',
-        href: '/restaurant/areas',
-    },
-    {
-        title: 'Areas',
-        href: '/restaurant/areas',
-    },
+    { title: 'Restaurant', href: '/restaurant/areas' },
+    { title: 'Areas', href: '/restaurant/areas' },
 ];
 
 interface Area {
@@ -22,22 +18,40 @@ interface Area {
     restaurant_id: number;
     name: string;
     description: string;
-    restaurant?: {
-        name: string;
-    };
+    restaurant?: { name: string };
 }
 
 interface Props {
     areas: Area[];
+    filters: { search?: string };
 }
 
-export default function AreaIndex({ areas }: Props) {
+export default function AreaIndex({ areas, filters }: Props) {
     const { auth } = usePage<SharedData>().props;
     const isSuperAdmin = auth.user?.role?.name === 'super_admin';
 
+    const [search, setSearch] = useState(filters.search ?? '');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const applyFilters = useCallback((params: Record<string, string>) => {
+        router.get('/restaurant/areas', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            applyFilters(search ? { search } : {});
+        }, 350);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [search]);
+
     const deleteArea = (id: number) => {
         if (confirm('Are you sure you want to delete this area? This will also delete all tables in this area.')) {
-            router.delete(`/restaurant/areas/${id}`);
+            inertiaRouter.delete(`/restaurant/areas/${id}`);
         }
     };
 
@@ -59,7 +73,26 @@ export default function AreaIndex({ areas }: Props) {
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle>All Areas</CardTitle>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <CardTitle>All Areas</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <div className="relative min-w-[200px]">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        id="area-search"
+                                        placeholder="Search areas..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-9 pr-9 h-9"
+                                    />
+                                    {search && (
+                                        <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="rounded-md border border-sidebar-border/70 overflow-hidden">
@@ -76,7 +109,7 @@ export default function AreaIndex({ areas }: Props) {
                                     {areas.length === 0 ? (
                                         <tr>
                                             <td colSpan={isSuperAdmin ? 4 : 3} className="px-4 py-8 text-center text-muted-foreground">
-                                                No areas found.
+                                                {search ? `No areas matching "${search}".` : 'No areas found.'}
                                             </td>
                                         </tr>
                                     ) : (
@@ -89,24 +122,13 @@ export default function AreaIndex({ areas }: Props) {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-muted-foreground">{area.description || '-'}</td>
-                                                {isSuperAdmin && (
-                                                    <td className="px-4 py-3">
-                                                        {area.restaurant?.name || 'Unknown'}
-                                                    </td>
-                                                )}
+                                                {isSuperAdmin && <td className="px-4 py-3">{area.restaurant?.name || 'Unknown'}</td>}
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <Button variant="ghost" size="icon" asChild>
-                                                            <Link href={`/restaurant/areas/${area.id}/edit`}>
-                                                                <Edit className="h-4 w-4" />
-                                                            </Link>
+                                                            <Link href={`/restaurant/areas/${area.id}/edit`}><Edit className="h-4 w-4" /></Link>
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            onClick={() => deleteArea(area.id)}
-                                                        >
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => deleteArea(area.id)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -117,6 +139,11 @@ export default function AreaIndex({ areas }: Props) {
                                 </tbody>
                             </table>
                         </div>
+                        {search && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {areas.length} result{areas.length !== 1 ? 's' : ''} found
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

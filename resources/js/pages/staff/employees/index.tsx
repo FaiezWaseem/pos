@@ -1,51 +1,64 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Employee, Restaurant, SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Trash2, Users, Search } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Search, X } from 'lucide-react';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { router } from '@inertiajs/react';
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Staff',
-        href: '/staff/employees',
-    },
-    {
-        title: 'Employees',
-        href: '/staff/employees',
-    },
+    { title: 'Staff', href: '/staff/employees' },
+    { title: 'Employees', href: '/staff/employees' },
 ];
 
 interface Props {
     employees: Employee[];
     restaurants: Restaurant[];
-    filters: {
-        restaurant_id?: string;
-    };
+    filters: { restaurant_id?: string; search?: string; status?: string };
 }
 
 export default function EmployeeIndex({ employees, restaurants, filters }: Props) {
     const { auth } = usePage<SharedData>().props;
     const isSuperAdmin = auth.user?.role?.name === 'super_admin';
 
-    const handleRestaurantFilter = (value: string) => {
-        router.get('/staff/employees', { restaurant_id: value === 'all' ? '' : value }, { preserveState: true });
-    };
+    const [search, setSearch] = useState(filters.search ?? '');
+    const [status, setStatus] = useState(filters.status ?? 'all');
+    const [restaurantId, setRestaurantId] = useState(filters.restaurant_id ?? 'all');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const applyFilters = useCallback((params: Record<string, string>) => {
+        router.get('/staff/employees', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            const params: Record<string, string> = {};
+            if (search) params.search = search;
+            if (status !== 'all') params.status = status;
+            if (restaurantId !== 'all') params.restaurant_id = restaurantId;
+            applyFilters(params);
+        }, 350);
+        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }, [search, status, restaurantId]);
 
     const deleteEmployee = (id: number) => {
         if (confirm('Are you sure you want to delete this employee? This will also delete their user account.')) {
             router.delete(`/staff/employees/${id}`);
         }
     };
+
+    const clearFilters = () => { setSearch(''); setStatus('all'); setRestaurantId('all'); };
+    const hasFilters = search || status !== 'all' || restaurantId !== 'all';
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -65,28 +78,53 @@ export default function EmployeeIndex({ employees, restaurants, filters }: Props
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                             <CardTitle>All Employees</CardTitle>
-                            {isSuperAdmin && (
-                                <div className="flex items-center gap-2 w-full max-w-xs">
-                                    <Select 
-                                        defaultValue={filters.restaurant_id || 'all'} 
-                                        onValueChange={handleRestaurantFilter}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Filter by Restaurant" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="relative min-w-[200px]">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        id="employee-search"
+                                        placeholder="Search employees..."
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="pl-9 pr-9 h-9"
+                                    />
+                                    {search && (
+                                        <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <Select value={status} onValueChange={setStatus}>
+                                    <SelectTrigger id="employee-status-filter" className="w-[140px] h-9">
+                                        <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {isSuperAdmin && (
+                                    <Select value={restaurantId} onValueChange={setRestaurantId}>
+                                        <SelectTrigger id="employee-restaurant-filter" className="w-[180px] h-9">
+                                            <SelectValue placeholder="All Restaurants" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Restaurants</SelectItem>
-                                            {restaurants.map((restaurant) => (
-                                                <SelectItem key={restaurant.id} value={restaurant.id.toString()}>
-                                                    {restaurant.name}
-                                                </SelectItem>
+                                            {restaurants.map((r) => (
+                                                <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                </div>
-                            )}
+                                )}
+                                {hasFilters && (
+                                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground h-9">
+                                        <X className="mr-1 h-3 w-3" /> Clear
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -112,19 +150,13 @@ export default function EmployeeIndex({ employees, restaurants, filters }: Props
                                                         <span className="text-xs text-muted-foreground">{employee.employee_id} • {employee.user?.email}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-muted-foreground">
-                                                    {employee.designation}
-                                                </td>
+                                                <td className="px-4 py-3 text-muted-foreground">{employee.designation}</td>
                                                 <td className="px-4 py-3">
                                                     <Badge variant="outline" className="capitalize">
                                                         {employee.user?.role?.label || employee.user?.role?.name}
                                                     </Badge>
                                                 </td>
-                                                {isSuperAdmin && (
-                                                    <td className="px-4 py-3 text-muted-foreground">
-                                                        {employee.restaurant?.name || 'N/A'}
-                                                    </td>
-                                                )}
+                                                {isSuperAdmin && <td className="px-4 py-3 text-muted-foreground">{employee.restaurant?.name || 'N/A'}</td>}
                                                 <td className="px-4 py-3 text-center">
                                                     <Badge variant={employee.is_active ? 'default' : 'secondary'}>
                                                         {employee.is_active ? 'Active' : 'Inactive'}
@@ -132,18 +164,10 @@ export default function EmployeeIndex({ employees, restaurants, filters }: Props
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <Button variant="ghost" size="icon" asChild title="Edit">
-                                                            <Link href={`/staff/employees/${employee.id}/edit`}>
-                                                                <Edit className="h-4 w-4" />
-                                                            </Link>
+                                                        <Button variant="ghost" size="icon" asChild>
+                                                            <Link href={`/staff/employees/${employee.id}/edit`}><Edit className="h-4 w-4" /></Link>
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="text-destructive hover:text-destructive"
-                                                            onClick={() => deleteEmployee(employee.id)}
-                                                            title="Delete"
-                                                        >
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteEmployee(employee.id)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -153,13 +177,18 @@ export default function EmployeeIndex({ employees, restaurants, filters }: Props
                                     ) : (
                                         <tr>
                                             <td colSpan={isSuperAdmin ? 6 : 5} className="px-4 py-8 text-center text-muted-foreground">
-                                                No employees found.
+                                                {hasFilters ? 'No employees match your search criteria.' : 'No employees found.'}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+                        {hasFilters && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {employees.length} result{employees.length !== 1 ? 's' : ''} found
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>

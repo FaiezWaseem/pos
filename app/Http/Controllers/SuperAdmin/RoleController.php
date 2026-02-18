@@ -9,10 +9,24 @@ use Inertia\Inertia;
 
 class RoleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $query = Role::with('company');
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('label', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('type')) {
+            $query->where('is_system', $request->input('type') === 'system');
+        }
+
         return Inertia::render('super-admin/roles/index', [
-            'roles' => Role::with('company')->latest()->get(),
+            'roles'   => $query->latest()->get(),
+            'filters' => $request->only(['search', 'type']),
         ]);
     }
 
