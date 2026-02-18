@@ -59,11 +59,14 @@ A full-featured, multi-tenant Point of Sale system built with **Laravel + Inerti
 - [x] Order status updates (pending → preparing → ready → served → paid)
 - [x] Print receipt from order detail
 
-### 📊 Reports & Analytics
-- [ ] Daily / weekly / monthly sales dashboard
-- [ ] Revenue by category, payment method, time of day
-- [ ] Best-selling products report
-- [ ] Export to CSV / PDF
+### 📊 Reports & Analytics ✅
+- [x] Period selector (Today, 7 days, 30 days, Month, Year, Custom range)
+- [x] Revenue & orders KPI summary cards
+- [x] Revenue over time bar chart (SVG, no external library)
+- [x] Revenue by payment method (donut chart + breakdown)
+- [x] Revenue by order type (donut chart + breakdown)
+- [x] Orders by hour of day (hourly distribution chart)
+- [x] Top 10 best-selling products with ranked progress bars
 
 ### 📦 Inventory Stock Tracking
 - [ ] Stock quantity per product

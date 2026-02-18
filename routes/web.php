@@ -14,6 +14,7 @@ use App\Http\Controllers\Restaurant\TableController;
 use App\Http\Controllers\Restaurant\SwitchController;
 use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\Pos\OrderController;
+use App\Http\Controllers\Pos\ReportController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -68,6 +69,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.status');
+
+        // Reports
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     });
 });
 
