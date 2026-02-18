@@ -16,6 +16,7 @@ use App\Http\Controllers\Restaurant\SwitchController;
 use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\Pos\OrderController;
 use App\Http\Controllers\Pos\ReportController;
+use App\Http\Controllers\Pos\DiscountController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -78,6 +79,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Reports
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+
+        // Discounts
+        Route::get('/discounts', [DiscountController::class, 'index'])->name('discounts.index');
+        Route::post('/discounts', [DiscountController::class, 'store'])->name('discounts.store');
+        Route::put('/discounts/{discount}', [DiscountController::class, 'update'])->name('discounts.update');
+        Route::delete('/discounts/{discount}', [DiscountController::class, 'destroy'])->name('discounts.destroy');
+        Route::post('/discounts/apply', [DiscountController::class, 'apply'])->name('discounts.apply');
     });
 });
 

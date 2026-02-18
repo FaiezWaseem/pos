@@ -33,15 +33,35 @@ export type Customer = {
     updated_at: string;
 };
 
+export type Discount = {
+    id: number;
+    restaurant_id: number;
+    name: string;
+    code: string;
+    type: 'percentage' | 'fixed';
+    value: number;
+    min_order_amount: number;
+    max_discount_amount: number | null;
+    usage_limit: number | null;
+    used_count: number;
+    is_active: boolean;
+    starts_at: string | null;
+    expires_at: string | null;
+    created_at: string;
+    updated_at: string;
+};
+
 export type Order = {
     id: number;
     restaurant_id: number;
     user_id: number;
     customer_id?: number;
     table_id?: number;
+    discount_id?: number | null;
     order_number: string;
     subtotal: number;
     tax: number;
+    discount_amount: number;
     total: number;
     status: 'pending' | 'paid' | 'cancelled' | 'refunded';
     order_type: 'dine_in' | 'takeaway' | 'delivery';
@@ -51,6 +71,7 @@ export type Order = {
     user?: User;
     customer?: Customer;
     table?: Table;
+    discount?: Discount;
     items?: OrderItem[];
     payment?: Payment;
 };

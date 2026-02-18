@@ -17,12 +17,14 @@ class Order extends Model
         'user_id',
         'table_id',
         'customer_id',
+        'discount_id',
         'order_number',
-        'order_type', // changed from 'type'
+        'order_type',
         'status',
-        'subtotal', // added
-        'tax', // added
-        'total', // added
+        'subtotal',
+        'tax',
+        'discount_amount',
+        'total',
         'notes',
     ];
 
@@ -51,8 +53,13 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function payment(): HasOne // changed from payments() to payment() for simplicity in POS
+    public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function discount(): BelongsTo
+    {
+        return $this->belongsTo(Discount::class);
     }
 }

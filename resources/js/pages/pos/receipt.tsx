@@ -98,15 +98,29 @@ export default function PosReceipt({ order }: Props) {
                         <div className="px-6 py-4 bg-gray-50 space-y-2 border-t border-dashed">
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Subtotal:</span>
-                                <span>${order.subtotal}</span>
+                                <span>${Number(order.subtotal).toFixed(2)}</span>
                             </div>
+                            {Number(order.discount_amount) > 0 && (
+                                <div className="flex justify-between text-sm text-emerald-600">
+                                    <span>
+                                        Discount
+                                        {order.discount?.code && (
+                                            <span className="ml-1 font-mono text-xs bg-emerald-100 px-1 rounded">
+                                                {order.discount.code}
+                                            </span>
+                                        )}
+                                        :
+                                    </span>
+                                    <span>-${Number(order.discount_amount).toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500">Tax:</span>
-                                <span>${order.tax}</span>
+                                <span>${Number(order.tax).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-lg font-bold border-t border-dashed pt-2 mt-2">
                                 <span>Total:</span>
-                                <span>${order.total}</span>
+                                <span>${Number(order.total).toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -137,7 +151,8 @@ export default function PosReceipt({ order }: Props) {
                 </div>
             </div>
 
-            <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{
+                __html: `
                 @media print {
                     .no-print { display: none !important; }
                     body { background: white; padding: 0; }

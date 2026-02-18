@@ -12,6 +12,7 @@ use App\Models\OrderItem;
 use App\Models\Customer;
 use App\Models\Payment;
 use App\Models\StockLog;
+use App\Models\Discount;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -82,27 +83,36 @@ class PosController extends Controller
             'items.*.addons' => 'nullable|array',
             'items.*.addons.*.id' => 'required_with:items.*.addons|exists:product_addons,id',
             'items.*.addons.*.quantity' => 'required_with:items.*.addons|integer|min:1',
-            'subtotal' => 'required|numeric|min:0',
-            'tax' => 'required|numeric|min:0',
-            'total' => 'required|numeric|min:0',
+            'subtotal'       => 'required|numeric|min:0',
+            'tax'            => 'required|numeric|min:0',
+            'total'          => 'required|numeric|min:0',
+            'discount_id'    => 'nullable|exists:discounts,id',
+            'discount_amount'=> 'nullable|numeric|min:0',
             'payment_method' => 'required|string|in:cash,card,online',
-            'order_type' => 'required|string|in:dine_in,takeaway,delivery',
+            'order_type'     => 'required|string|in:dine_in,takeaway,delivery',
         ]);
 
         $order = DB::transaction(function () use ($validated) {
             // 1. Create Order
             $order = Order::create([
-                'restaurant_id' => $validated['restaurant_id'],
-                'user_id' => auth()->id(),
-                'customer_id' => $validated['customer_id'],
-                'table_id' => $validated['table_id'],
-                'order_number' => 'ORD-' . strtoupper(uniqid()),
-                'subtotal' => $validated['subtotal'],
-                'tax' => $validated['tax'],
-                'total' => $validated['total'],
-                'status' => 'pending',
-                'order_type' => $validated['order_type'],
+                'restaurant_id'  => $validated['restaurant_id'],
+                'user_id'        => auth()->id(),
+                'customer_id'    => $validated['customer_id'],
+                'table_id'       => $validated['table_id'],
+                'discount_id'    => $validated['discount_id'] ?? null,
+                'order_number'   => 'ORD-' . strtoupper(uniqid()),
+                'subtotal'       => $validated['subtotal'],
+                'tax'            => $validated['tax'],
+                'discount_amount'=> $validated['discount_amount'] ?? 0,
+                'total'          => $validated['total'],
+                'status'         => 'pending',
+                'order_type'     => $validated['order_type'],
             ]);
+
+            // Increment discount usage count
+            if (!empty($validated['discount_id'])) {
+                Discount::where('id', $validated['discount_id'])->increment('used_count');
+            }
 
             // 2. Create Order Items
             foreach ($validated['items'] as $item) {
@@ -175,7 +185,7 @@ class PosController extends Controller
 
     public function receipt(Order $order)
     {
-        $order->load(['restaurant', 'items.product', 'items.size', 'customer', 'table', 'payment']);
+        $order->load(['restaurant', 'items.product', 'items.size', 'customer', 'table', 'payment', 'discount']);
         
         return Inertia::render('pos/receipt', [
             'order' => $order

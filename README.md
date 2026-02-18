@@ -78,10 +78,16 @@ A full-featured, multi-tenant Point of Sale system built with **Laravel + Inerti
 - [x] Mini stock bar indicators in product rows
 - [x] Filterable by status (In Stock / Low / Out) and restaurant
 
-### 🎟️ Discounts & Promotions
-- [ ] Order-level percentage / fixed discounts
-- [ ] Coupon / promo codes
-- [ ] Happy hour pricing rules
+### 🏟️ Discounts & Promotions ✅
+- [x] Discount model with `code`, `type` (percentage/fixed), `value`, `min_order_amount`, `max_discount_amount`, `usage_limit`, date range
+- [x] Full CRUD management page (create/edit/delete with dialog, copy-code button)
+- [x] Status badges (Active / Inactive / Expired / Scheduled / Limit Reached)
+- [x] `apply` API endpoint validates code, checks eligibility, returns discount amount
+- [x] POS terminal: discount code input with live Apply button and spinner
+- [x] Cart totals show discount line in green with code label
+- [x] Tax calculated on discounted subtotal
+- [x] `used_count` auto-incremented on successful order
+- [x] Discount ID + amount stored on order record
 
 ### 🍳 Kitchen Display System (KDS)
 - [ ] Real-time order queue for kitchen staff

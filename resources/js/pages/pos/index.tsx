@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
+import axios from 'axios';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, Category, Product, ProductSize, ProductAddon, Table, Area, Customer, SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, ShoppingCart, Trash2, Plus, Minus, User, Table as TableIcon, CreditCard, Banknote, Globe, Package, X } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, User, Table as TableIcon, CreditCard, Banknote, Globe, Package, X, Ticket, CheckCircle2, Loader2 } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -77,6 +78,14 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
     const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in');
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'online'>('cash');
+
+    // Discount state
+    const [discountCode, setDiscountCode] = useState('');
+    const [discountApplied, setDiscountApplied] = useState<{
+        discount_id: number; discount_amount: number; code: string; name: string;
+    } | null>(null);
+    const [discountError, setDiscountError] = useState<string | null>(null);
+    const [discountLoading, setDiscountLoading] = useState(false);
 
     // Variation selection state
     const [isVariationDialogOpen, setIsVariationDialogOpen] = useState(false);
@@ -220,8 +229,31 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
         return cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * item.quantity), 0);
     }, [cart]);
 
-    const tax = subtotal * 0.1; // 10% tax example
-    const total = subtotal + tax;
+    const discountAmount = discountApplied?.discount_amount ?? 0;
+    const tax = (subtotal - discountAmount) * 0.1;
+    const total = subtotal - discountAmount + tax;
+
+    const applyDiscount = async () => {
+        if (!discountCode.trim()) return;
+        setDiscountLoading(true);
+        setDiscountError(null);
+        try {
+            const { data: json } = await axios.post('/pos/discounts/apply', {
+                code: discountCode.trim(),
+                subtotal,
+            });
+            setDiscountApplied(json);
+            setDiscountError(null);
+        } catch (err: any) {
+            const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? 'Invalid discount code.';
+            setDiscountError(msg);
+            setDiscountApplied(null);
+        } finally {
+            setDiscountLoading(false);
+        }
+    };
+
+    const removeDiscount = () => { setDiscountApplied(null); setDiscountCode(''); setDiscountError(null); };
 
     const handleCheckout = () => {
         if (cart.length === 0) return;
@@ -248,6 +280,8 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
             subtotal,
             tax,
             total,
+            discount_id: discountApplied?.discount_id ?? null,
+            discount_amount: discountApplied?.discount_amount ?? 0,
             payment_method: paymentMethod,
             order_type: orderType
         };
@@ -257,6 +291,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                 setCart([]);
                 setSelectedTable(null);
                 setIsCheckoutOpen(false);
+                removeDiscount();
             }
         });
     };
@@ -458,10 +493,52 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     </ScrollArea>
 
                     <div className="p-4 border-t bg-sidebar-accent/30 space-y-3">
+                        {/* Discount code input */}
+                        <div className="space-y-1.5">
+                            {discountApplied ? (
+                                <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                        <div>
+                                            <p className="text-xs font-bold text-emerald-700">{discountApplied.code}</p>
+                                            <p className="text-xs text-emerald-600">{discountApplied.name}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={removeDiscount} className="text-muted-foreground hover:text-foreground">
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-1.5">
+                                    <div className="relative flex-1">
+                                        <Ticket className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Discount code"
+                                            value={discountCode}
+                                            onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(null); }}
+                                            onKeyDown={e => e.key === 'Enter' && applyDiscount()}
+                                            className="pl-8 h-8 text-xs font-mono"
+                                        />
+                                    </div>
+                                    <Button size="sm" variant="outline" className="h-8 px-3 text-xs"
+                                        onClick={applyDiscount} disabled={discountLoading || !discountCode.trim()}>
+                                        {discountLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Apply'}
+                                    </Button>
+                                </div>
+                            )}
+                            {discountError && <p className="text-xs text-red-500">{discountError}</p>}
+                        </div>
+
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Subtotal</span>
                             <span>${Number(subtotal || 0).toFixed(2)}</span>
                         </div>
+                        {discountApplied && (
+                            <div className="flex justify-between text-sm text-emerald-600">
+                                <span>Discount ({discountApplied.code})</span>
+                                <span>-${Number(discountAmount).toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Tax (10%)</span>
                             <span>${Number(tax || 0).toFixed(2)}</span>
