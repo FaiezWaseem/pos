@@ -39,7 +39,12 @@ class PosController extends Controller
         $categories = Category::where('restaurant_id', $restaurantId)
             ->where('is_active', true)
             ->with(['products' => function($query) {
-                $query->where('is_available', true);
+                $query->where('is_available', true)
+                    ->with(['sizes' => function($q) {
+                        $q->where('is_available', true)->orderBy('sort_order');
+                    }, 'addons.addonProduct' => function($q) {
+                        $q->where('is_available', true);
+                    }]);
             }])
             ->get();
 
@@ -72,6 +77,10 @@ class PosController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.notes' => 'nullable|string',
+            'items.*.size_id' => 'nullable|exists:product_sizes,id',
+            'items.*.addons' => 'nullable|array',
+            'items.*.addons.*.id' => 'required_with:items.*.addons|exists:product_addons,id',
+            'items.*.addons.*.quantity' => 'required_with:items.*.addons|integer|min:1',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
             'total' => 'required|numeric|min:0',
@@ -96,13 +105,29 @@ class PosController extends Controller
 
             // 2. Create Order Items
             foreach ($validated['items'] as $item) {
+                // Prepare addons data for storage
+                $addonsData = null;
+                if (!empty($item['addons'])) {
+                    $addonsData = collect($item['addons'])->map(function ($addon) {
+                        $addonModel = \App\Models\ProductAddon::with('addonProduct')->find($addon['id']);
+                        return [
+                            'id' => $addon['id'],
+                            'name' => $addonModel->addonProduct->name ?? 'Unknown',
+                            'price' => $addonModel->price_override ?? $addonModel->addonProduct->price ?? 0,
+                            'quantity' => $addon['quantity'],
+                        ];
+                    })->toArray();
+                }
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
+                    'size_id' => $item['size_id'] ?? null,
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'total' => $item['quantity'] * $item['price'],
                     'notes' => $item['notes'] ?? null,
+                    'addons' => $addonsData,
                 ]);
             }
 
@@ -131,7 +156,7 @@ class PosController extends Controller
 
     public function receipt(Order $order)
     {
-        $order->load(['restaurant', 'items.product', 'customer', 'table', 'payment']);
+        $order->load(['restaurant', 'items.product', 'items.size', 'customer', 'table', 'payment']);
         
         return Inertia::render('pos/receipt', [
             'order' => $order

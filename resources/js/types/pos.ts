@@ -1,5 +1,5 @@
 import { Restaurant, User } from "./auth";
-import { Product, Category } from "./inventory";
+import { Product, Category, ProductSize } from "./inventory";
 
 export type Area = {
     id: number;
@@ -55,17 +55,27 @@ export type Order = {
     payment?: Payment;
 };
 
+export type OrderItemAddon = {
+    id: number;
+    name: string;
+    price: number;
+    quantity: number;
+};
+
 export type OrderItem = {
     id: number;
     order_id: number;
     product_id: number;
+    size_id?: number | null;
     quantity: number;
     price: number;
     total: number;
     notes?: string;
+    addons?: OrderItemAddon[];
     created_at: string;
     updated_at: string;
     product?: Product;
+    size?: ProductSize;
 };
 
 export type Payment = {

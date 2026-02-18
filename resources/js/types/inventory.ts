@@ -16,7 +16,7 @@ export type ProductSize = {
     id?: number;
     product_id: number;
     name: string;
-    price_adjustment: number;
+    price_adjustment: number | string;
     quantity?: number | null;
     is_available: boolean;
     sort_order: number;
@@ -28,7 +28,7 @@ export type ProductAddon = {
     id?: number;
     product_id: number;
     addon_product_id: number;
-    price_override?: number | null;
+    price_override?: number | string | null;
     quantity_default?: number | null;
     is_required: boolean;
     sort_order: number;
@@ -43,8 +43,8 @@ export type Product = {
     category_id: number;
     name: string;
     description?: string;
-    price: number;
-    cost: number;
+    price: number | string;
+    cost: number | string;
     image?: string;
     is_available: boolean;
     has_variations: boolean;

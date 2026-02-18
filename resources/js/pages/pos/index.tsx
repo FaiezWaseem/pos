@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem, Category, Product, Table, Area, Customer, SharedData } from '@/types';
+import type { BreadcrumbItem, Category, Product, ProductSize, ProductAddon, Table, Area, Customer, SharedData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, ShoppingCart, Trash2, Plus, Minus, User, Table as TableIcon, CreditCard, Banknote, Globe, Package } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, User, Table as TableIcon, CreditCard, Banknote, Globe, Package, X } from 'lucide-react';
 import { 
     Dialog, 
     DialogContent, 
@@ -25,6 +25,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -41,11 +43,27 @@ interface Props {
     restaurant_id: number;
 }
 
+interface SelectedSize {
+    id: number;
+    name: string;
+    price_adjustment: number;
+}
+
+interface SelectedAddon {
+    id: number;
+    addon_product_id: number;
+    addon_product_name: string;
+    price: number;
+    quantity: number;
+}
+
 interface CartItem {
     product: Product;
     quantity: number;
     price: number;
     notes?: string;
+    size?: SelectedSize | null;
+    addons?: SelectedAddon[];
 }
 
 export default function PosIndex({ categories, tables, areas, customers, restaurant_id }: Props) {
@@ -59,6 +77,12 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
     const [orderType, setOrderType] = useState<'dine_in' | 'takeaway' | 'delivery'>('dine_in');
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'online'>('cash');
+    
+    // Variation selection state
+    const [isVariationDialogOpen, setIsVariationDialogOpen] = useState(false);
+    const [selectedProductForVariation, setSelectedProductForVariation] = useState<Product | null>(null);
+    const [selectedSize, setSelectedSize] = useState<SelectedSize | null>(null);
+    const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
 
     const { post, processing } = useForm();
 
@@ -81,23 +105,106 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
         return products;
     }, [categories, activeCategoryId, searchTerm]);
 
-    const addToCart = (product: Product) => {
-        setCart(prev => {
-            const existing = prev.find(item => item.product.id === product.id);
-            if (existing) {
-                return prev.map(item => 
-                    item.product.id === product.id 
-                        ? { ...item, quantity: item.quantity + 1 } 
-                        : item
-                );
-            }
-            return [...prev, { product, quantity: 1, price: product.price }];
-        });
+    const openVariationDialog = (product: Product) => {
+        setSelectedProductForVariation(product);
+        // Reset selections
+        setSelectedSize(null);
+        setSelectedAddons([]);
+        setIsVariationDialogOpen(true);
     };
 
-    const updateQuantity = (productId: number, delta: number) => {
-        setCart(prev => prev.map(item => {
-            if (item.product.id === productId) {
+    const handleAddAddon = (addon: ProductAddon) => {
+        const existingIndex = selectedAddons.findIndex(a => a.id === addon.id);
+        if (existingIndex >= 0) {
+            // Already added, update quantity
+            const updated = [...selectedAddons];
+            updated[existingIndex].quantity += 1;
+            setSelectedAddons(updated);
+        } else {
+            // Add new
+            setSelectedAddons([...selectedAddons, {
+                id: addon.id!,
+                addon_product_id: addon.addon_product_id,
+                addon_product_name: addon.addon_product?.name || 'Unknown',
+                price: Number(addon.price_override ?? addon.addon_product?.price ?? 0),
+                quantity: 1,
+            }]);
+        }
+    };
+
+    const handleRemoveAddon = (addonId: number) => {
+        const existingIndex = selectedAddons.findIndex(a => a.id === addonId);
+        if (existingIndex >= 0) {
+            const updated = [...selectedAddons];
+            if (updated[existingIndex].quantity > 1) {
+                updated[existingIndex].quantity -= 1;
+            } else {
+                updated.splice(existingIndex, 1);
+            }
+            setSelectedAddons(updated);
+        }
+    };
+
+    const calculateItemPrice = (): number => {
+        if (!selectedProductForVariation) return 0;
+        
+        let price = Number(selectedProductForVariation.price) || 0;
+        
+        // Add size adjustment
+        if (selectedSize) {
+            price += Number(selectedSize.price_adjustment) || 0;
+        }
+        
+        // Add addons
+        selectedAddons.forEach(addon => {
+            price += (Number(addon.price) || 0) * addon.quantity;
+        });
+        
+        return price;
+    };
+
+    const confirmAddToCart = () => {
+        if (!selectedProductForVariation) return;
+        
+        const cartItem: CartItem = {
+            product: selectedProductForVariation,
+            quantity: 1,
+            price: calculateItemPrice(),
+            size: selectedSize,
+            addons: selectedAddons,
+        };
+        
+        setCart(prev => [...prev, cartItem]);
+        setIsVariationDialogOpen(false);
+        setSelectedProductForVariation(null);
+    };
+
+    const addToCart = (product: Product) => {
+        // Check if product has variations
+        if (product.has_variations && (product.sizes?.length || product.addons?.length)) {
+            openVariationDialog(product);
+        } else {
+            // Simple product - add directly
+            setCart(prev => {
+                // For simple products, we can group by product id
+                const existing = prev.find(item =>
+                    item.product.id === product.id && !item.size && !item.addons?.length
+                );
+                if (existing) {
+                    return prev.map(item =>
+                        item.product.id === product.id && !item.size && !item.addons?.length
+                            ? { ...item, quantity: item.quantity + 1 }
+                            : item
+                    );
+                }
+                return [...prev, { product, quantity: 1, price: Number(product.price) || 0 }];
+            });
+        }
+    };
+
+    const updateQuantity = (index: number, delta: number) => {
+        setCart(prev => prev.map((item, i) => {
+            if (i === index) {
                 const newQty = Math.max(0, item.quantity + delta);
                 return { ...item, quantity: newQty };
             }
@@ -105,12 +212,12 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
         }).filter(item => item.quantity > 0));
     };
 
-    const removeFromCart = (productId: number) => {
-        setCart(prev => prev.filter(item => item.product.id !== productId));
+    const removeFromCart = (index: number) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
     };
 
     const subtotal = useMemo(() => {
-        return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        return cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * item.quantity), 0);
     }, [cart]);
 
     const tax = subtotal * 0.1; // 10% tax example
@@ -134,7 +241,9 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                 product_id: item.product.id,
                 quantity: item.quantity,
                 price: item.price,
-                notes: item.notes
+                notes: item.notes,
+                size_id: item.size?.id,
+                addon_ids: item.addons?.map(a => ({ id: a.id, quantity: a.quantity })),
             })),
             subtotal,
             tax,
@@ -143,9 +252,6 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
             order_type: orderType
         };
 
-        // When using useForm().post, the data should be passed as the second argument if you want to override form state
-        // or just use router.post if you aren't managing the fields through useForm state.
-        // Given the code, it's better to use router.post for this kind of programmatic submission.
         router.post('/pos/order', orderData, {
             onSuccess: () => {
                 setCart([]);
@@ -153,6 +259,14 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                 setIsCheckoutOpen(false);
             }
         });
+    };
+
+    const getCartItemDisplayName = (item: CartItem): string => {
+        let name = item.product.name;
+        if (item.size) {
+            name += ` (${item.size.name})`;
+        }
+        return name;
     };
 
     return (
@@ -218,9 +332,16 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                                         )}
                                         <div className="absolute top-2 right-2">
                                             <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm">
-                                                ${product.price}
+                                                ${Number(product.price || 0).toFixed(2)}
                                             </Badge>
                                         </div>
+                                        {product.has_variations && (product.sizes?.length || product.addons?.length) && (
+                                            <div className="absolute bottom-2 left-2">
+                                                <Badge variant="default" className="text-xs">
+                                                    Options
+                                                </Badge>
+                                            </div>
+                                        )}
                                     </div>
                                     <CardContent className="p-3">
                                         <CardTitle className="text-sm font-semibold line-clamp-2">{product.name}</CardTitle>
@@ -284,34 +405,47 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     <ScrollArea className="flex-1">
                         <div className="p-4 space-y-4">
                             {cart.length > 0 ? (
-                                cart.map(item => (
-                                    <div key={item.product.id} className="flex gap-3">
+                                cart.map((item, index) => (
+                                    <div key={index} className="flex gap-3 border-b pb-3">
                                         <div className="flex-1">
-                                            <h4 className="text-sm font-medium">{item.product.name}</h4>
-                                            <p className="text-xs text-muted-foreground">${item.price} x {item.quantity}</p>
+                                            <h4 className="text-sm font-medium">{getCartItemDisplayName(item)}</h4>
+                                            {item.addons && item.addons.length > 0 && (
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    Addons: {item.addons.map(a => `${a.addon_product_name} x${a.quantity}`).join(', ')}
+                                                </div>
+                                            )}
+                                            <p className="text-xs text-muted-foreground">${(Number(item.price) || 0).toFixed(2)} x {item.quantity}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <Button 
-                                                variant="outline" 
-                                                size="icon" 
-                                                className="h-7 w-7" 
-                                                onClick={() => updateQuantity(item.product.id, -1)}
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={() => updateQuantity(index, -1)}
                                             >
                                                 <Minus className="h-3 w-3" />
                                             </Button>
                                             <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
-                                            <Button 
-                                                variant="outline" 
-                                                size="icon" 
-                                                className="h-7 w-7" 
-                                                onClick={() => updateQuantity(item.product.id, 1)}
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={() => updateQuantity(index, 1)}
                                             >
                                                 <Plus className="h-3 w-3" />
                                             </Button>
                                         </div>
                                         <div className="text-right min-w-[60px]">
-                                            <p className="text-sm font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                                            <p className="text-sm font-semibold">${((Number(item.price) || 0) * item.quantity).toFixed(2)}</p>
                                         </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-destructive"
+                                            onClick={() => removeFromCart(index)}
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                        </Button>
                                     </div>
                                 ))
                             ) : (
@@ -326,16 +460,16 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     <div className="p-4 border-t bg-sidebar-accent/30 space-y-3">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Subtotal</span>
-                            <span>${subtotal.toFixed(2)}</span>
+                            <span>${Number(subtotal || 0).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Tax (10%)</span>
-                            <span>${tax.toFixed(2)}</span>
+                            <span>${Number(tax || 0).toFixed(2)}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-bold text-lg">
                             <span>Total</span>
-                            <span className="text-primary">${total.toFixed(2)}</span>
+                            <span className="text-primary">${Number(total || 0).toFixed(2)}</span>
                         </div>
                         <Button 
                             className="w-full h-12 text-lg font-bold" 
@@ -347,6 +481,122 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     </div>
                 </div>
             </div>
+
+            {/* Variation Selection Dialog */}
+            <Dialog open={isVariationDialogOpen} onOpenChange={setIsVariationDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>{selectedProductForVariation?.name}</DialogTitle>
+                        <DialogDescription>
+                            Select options for this item
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="py-4 space-y-6">
+                        {/* Size Selection */}
+                        {selectedProductForVariation?.sizes && selectedProductForVariation.sizes.length > 0 && (
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold">Select Size</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {selectedProductForVariation.sizes.map(size => {
+                                        const priceAdjustment = Number(size.price_adjustment) || 0;
+                                        return (
+                                            <Button
+                                                key={size.id}
+                                                type="button"
+                                                variant={selectedSize?.id === size.id ? 'default' : 'outline'}
+                                                className="justify-between"
+                                                onClick={() => setSelectedSize({
+                                                    id: size.id!,
+                                                    name: size.name,
+                                                    price_adjustment: priceAdjustment,
+                                                })}
+                                            >
+                                                <span>{size.name}</span>
+                                                <span className="text-xs">
+                                                    {priceAdjustment >= 0 ? '+' : ''}{priceAdjustment.toFixed(2)}
+                                                </span>
+                                            </Button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Addons Selection */}
+                        {selectedProductForVariation?.addons && selectedProductForVariation.addons.length > 0 && (
+                            <div className="space-y-3">
+                                <Label className="text-sm font-semibold">Add-ons</Label>
+                                <div className="space-y-2">
+                                    {selectedProductForVariation.addons.map(addon => {
+                                        const selectedAddon = selectedAddons.find(a => a.id === addon.id);
+                                        const price = Number(addon.price_override ?? addon.addon_product?.price ?? 0);
+                                        
+                                        return (
+                                            <div key={addon.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium">{addon.addon_product?.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        ${price.toFixed(2)}
+                                                        {addon.is_required && <span className="ml-2 text-orange-500">*Required</span>}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {selectedAddon ? (
+                                                        <>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="icon"
+                                                                className="h-7 w-7"
+                                                                onClick={() => handleRemoveAddon(addon.id!)}
+                                                            >
+                                                                <Minus className="h-3 w-3" />
+                                                            </Button>
+                                                            <span className="w-6 text-center">{selectedAddon.quantity}</span>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="icon"
+                                                                className="h-7 w-7"
+                                                                onClick={() => handleAddAddon(addon)}
+                                                            >
+                                                                <Plus className="h-3 w-3" />
+                                                            </Button>
+                                                        </>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleAddAddon(addon)}
+                                                        >
+                                                            <Plus className="h-4 w-4 mr-1" />
+                                                            Add
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Price Summary */}
+                        <div className="flex justify-between items-center bg-muted p-4 rounded-lg">
+                            <span className="font-medium text-muted-foreground">Item Price</span>
+                            <span className="text-xl font-bold">${Number(calculateItemPrice() || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsVariationDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={confirmAddToCart}>
+                            Add to Cart
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Checkout Modal */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
@@ -361,7 +611,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     <div className="py-4 space-y-6">
                         <div className="flex justify-between items-center bg-muted p-4 rounded-lg">
                             <span className="font-medium text-muted-foreground">Amount to Pay</span>
-                            <span className="text-2xl font-bold">${total.toFixed(2)}</span>
+                            <span className="text-2xl font-bold">${Number(total || 0).toFixed(2)}</span>
                         </div>
 
                         <div className="space-y-3">
@@ -407,13 +657,5 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                 </DialogContent>
             </Dialog>
         </AppLayout>
-    );
-}
-
-function Label({ children, className }: { children: React.ReactNode, className?: string }) {
-    return (
-        <label className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}>
-            {children}
-        </label>
     );
 }

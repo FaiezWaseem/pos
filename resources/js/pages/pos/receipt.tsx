@@ -76,6 +76,14 @@ export default function PosReceipt({ order }: Props) {
                                         <tr key={item.id}>
                                             <td className="py-3">
                                                 <div className="font-medium">{item.product?.name}</div>
+                                                {item.size && (
+                                                    <div className="text-xs text-gray-600">Size: {item.size.name}</div>
+                                                )}
+                                                {item.addons && item.addons.length > 0 && (
+                                                    <div className="text-xs text-gray-600">
+                                                        Addons: {item.addons.map((a: { name: string; quantity: number }) => `${a.name} x${a.quantity}`).join(', ')}
+                                                    </div>
+                                                )}
                                                 <div className="text-xs text-gray-500">${item.price} each</div>
                                             </td>
                                             <td className="py-3 text-center">{item.quantity}</td>

@@ -13,10 +13,16 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'product_id',
+        'size_id',
         'quantity',
         'price',
-        'total', // added/changed from subtotal
+        'total',
         'notes',
+        'addons',
+    ];
+
+    protected $casts = [
+        'addons' => 'array',
     ];
 
     public function order(): BelongsTo
@@ -27,5 +33,38 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function size(): BelongsTo
+    {
+        return $this->belongsTo(ProductSize::class, 'size_id');
+    }
+
+    /**
+     * Get the display name for this order item
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        $name = $this->product->name;
+        
+        if ($this->size) {
+            $name .= ' (' . $this->size->name . ')';
+        }
+        
+        return $name;
+    }
+
+    /**
+     * Get formatted addons string
+     */
+    public function getAddonsStringAttribute(): ?string
+    {
+        if (!$this->addons || empty($this->addons)) {
+            return null;
+        }
+        
+        return collect($this->addons)
+            ->map(fn($addon) => $addon['name'] . ' x' . $addon['quantity'])
+            ->join(', ');
     }
 }
