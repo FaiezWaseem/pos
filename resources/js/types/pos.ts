@@ -29,6 +29,7 @@ export type Customer = {
     email?: string;
     phone?: string;
     address?: string;
+    loyalty_points: number;
     created_at: string;
     updated_at: string;
 };

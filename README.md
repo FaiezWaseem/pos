@@ -98,14 +98,14 @@ A full-featured, multi-tenant Point of Sale system built with **Laravel + Inerti
 - [x] Detail view of items, addons, sizes, and notes
 
 ### 👤 Customer Loyalty
-- [ ] Customer purchase history
-- [ ] Points / loyalty system
-- [ ] Customer profile management
+- [x] Customer purchase history
+- [x] Points / loyalty system
+- [x] Customer profile management
 
 ### 🕐 Basic HR (Shifts & Attendance)
-- [ ] Shift scheduling per employee
-- [ ] Clock-in / clock-out
-- [ ] Attendance logs
+- [x] Shift scheduling per employee
+- [x] Clock-in / clock-out
+- [x] Attendance logs
 
 ---
 

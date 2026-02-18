@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
 import axios from 'axios';
 import AppLayout from '@/layouts/app-layout';
@@ -92,6 +92,13 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
     const [selectedProductForVariation, setSelectedProductForVariation] = useState<Product | null>(null);
     const [selectedSize, setSelectedSize] = useState<SelectedSize | null>(null);
     const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
+
+    // Loyalty Points State
+    const [pointsRedeemed, setPointsRedeemed] = useState(0);
+    const selectedCustomerObj = useMemo(() => customers.find(c => c.id === selectedCustomer), [selectedCustomer, customers]);
+
+    // Reset points if customer changes
+    useEffect(() => { setPointsRedeemed(0); }, [selectedCustomer]);
 
     const { post, processing } = useForm();
 
@@ -229,9 +236,11 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
         return cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * item.quantity), 0);
     }, [cart]);
 
+    const pointsValue = pointsRedeemed * 0.10; // Rate: 10 points = $1
     const discountAmount = discountApplied?.discount_amount ?? 0;
-    const tax = (subtotal - discountAmount) * 0.1;
-    const total = subtotal - discountAmount + tax;
+    const taxableAmount = Math.max(0, subtotal - discountAmount - pointsValue);
+    const tax = taxableAmount * 0.1;
+    const total = taxableAmount + tax;
 
     const applyDiscount = async () => {
         if (!discountCode.trim()) return;
@@ -282,6 +291,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
             total,
             discount_id: discountApplied?.discount_id ?? null,
             discount_amount: discountApplied?.discount_amount ?? 0,
+            points_redeemed: pointsRedeemed,
             payment_method: paymentMethod,
             order_type: orderType
         };
@@ -292,6 +302,7 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                 setSelectedTable(null);
                 setIsCheckoutOpen(false);
                 removeDiscount();
+                setPointsRedeemed(0);
             }
         });
     };
@@ -493,6 +504,42 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                     </ScrollArea>
 
                     <div className="p-4 border-t bg-sidebar-accent/30 space-y-3">
+                        {/* Loyalty Points Redemption */}
+                        {selectedCustomerObj && selectedCustomerObj.loyalty_points > 0 && (
+                            <div className="space-y-1.5 p-3 rounded-lg bg-orange-50 border border-orange-100">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-xs font-semibold text-orange-800 flex items-center gap-1">
+                                        <Ticket className="h-3 w-3" />
+                                        Loyalty Points ({selectedCustomerObj.loyalty_points})
+                                    </span>
+                                    {pointsRedeemed > 0 && (
+                                        <button onClick={() => setPointsRedeemed(0)} className="text-xs text-muted-foreground hover:text-red-500">
+                                            Clear
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max={selectedCustomerObj.loyalty_points}
+                                        value={pointsRedeemed || ''}
+                                        onChange={e => {
+                                            const val = parseInt(e.target.value) || 0;
+                                            if (val <= selectedCustomerObj.loyalty_points) {
+                                                setPointsRedeemed(val);
+                                            }
+                                        }}
+                                        placeholder="Redeem points"
+                                        className="h-8 text-xs bg-white"
+                                    />
+                                    <div className="text-xs font-mono whitespace-nowrap text-orange-700 min-w-[60px] text-right">
+                                        -${(pointsRedeemed * 0.10).toFixed(2)}
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-orange-600/70">Rate: 10 points = $1.00</p>
+                            </div>
+                        )}
                         {/* Discount code input */}
                         <div className="space-y-1.5">
                             {discountApplied ? (
@@ -533,6 +580,12 @@ export default function PosIndex({ categories, tables, areas, customers, restaur
                             <span className="text-muted-foreground">Subtotal</span>
                             <span>${Number(subtotal || 0).toFixed(2)}</span>
                         </div>
+                        {pointsRedeemed > 0 && (
+                            <div className="flex justify-between text-sm text-orange-600">
+                                <span>Loyalty Redeem ({pointsRedeemed} pts)</span>
+                                <span>-${(pointsRedeemed * 0.10).toFixed(2)}</span>
+                            </div>
+                        )}
                         {discountApplied && (
                             <div className="flex justify-between text-sm text-emerald-600">
                                 <span>Discount ({discountApplied.code})</span>

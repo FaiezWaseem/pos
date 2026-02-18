@@ -13,6 +13,7 @@ use App\Models\Customer;
 use App\Models\Payment;
 use App\Models\StockLog;
 use App\Models\Discount;
+use App\Models\LoyaltyTransaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,7 @@ class PosController extends Controller
             'total'          => 'required|numeric|min:0',
             'discount_id'    => 'nullable|exists:discounts,id',
             'discount_amount'=> 'nullable|numeric|min:0',
+            'points_redeemed'=> 'nullable|integer|min:0',
             'payment_method' => 'required|string|in:cash,card,online',
             'order_type'     => 'required|string|in:dine_in,takeaway,delivery',
         ]);
@@ -104,10 +106,47 @@ class PosController extends Controller
                 'subtotal'       => $validated['subtotal'],
                 'tax'            => $validated['tax'],
                 'discount_amount'=> $validated['discount_amount'] ?? 0,
+                'points_redeemed'=> $validated['points_redeemed'] ?? 0,
+                // Calculate earned points: 1 point per $1 subtotal
+                'points_earned'  => $validated['customer_id'] ? floor($validated['subtotal']) : 0,
                 'total'          => $validated['total'],
                 'status'         => 'pending',
                 'order_type'     => $validated['order_type'],
             ]);
+
+            // Loyalty Logic
+            if ($validated['customer_id']) {
+                $customer = Customer::find($validated['customer_id']);
+                $pointsRedeemed = $validated['points_redeemed'] ?? 0;
+                $pointsEarned = $order->points_earned;
+
+                // Handle Redemption
+                if ($pointsRedeemed > 0) {
+                    if ($customer->loyalty_points < $pointsRedeemed) {
+                        throw new \Exception('Insufficient loyalty points balance.');
+                    }
+                    $customer->decrement('loyalty_points', $pointsRedeemed);
+                    LoyaltyTransaction::create([
+                        'customer_id' => $customer->id,
+                        'order_id'    => $order->id,
+                        'type'        => 'redeemed',
+                        'points'      => -$pointsRedeemed,
+                        'description' => "Redeemed on order #{$order->order_number}",
+                    ]);
+                }
+
+                // Handle Earning
+                if ($pointsEarned > 0) {
+                    $customer->increment('loyalty_points', $pointsEarned);
+                    LoyaltyTransaction::create([
+                        'customer_id' => $customer->id,
+                        'order_id'    => $order->id,
+                        'type'        => 'earned',
+                        'points'      => $pointsEarned,
+                        'description' => "Earned from order #{$order->order_number}",
+                    ]);
+                }
+            }
 
             // Increment discount usage count
             if (!empty($validated['discount_id'])) {

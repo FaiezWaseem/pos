@@ -22,6 +22,8 @@ class Order extends Model
         'order_type',
         'status',
         'kitchen_status',
+        'points_earned',
+        'points_redeemed',
         'subtotal',
         'tax',
         'discount_amount',
@@ -71,5 +73,9 @@ class Order extends Model
     public function discount(): BelongsTo
     {
         return $this->belongsTo(Discount::class);
+    }
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyTransaction::class);
     }
 }

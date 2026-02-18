@@ -11,14 +11,27 @@ class Customer extends Model
     use HasFactory;
 
     protected $fillable = [
+        'restaurant_id',
         'name',
         'email',
         'phone',
         'address',
+        'loyalty_points',
+        'last_visit_at',
+    ];
+
+    protected $casts = [
+        'loyalty_points' => 'integer',
+        'last_visit_at' => 'datetime',
     ];
 
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function loyaltyTransactions(): HasMany
+    {
+        return $this->hasMany(LoyaltyTransaction::class)->latest();
     }
 }

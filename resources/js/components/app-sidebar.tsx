@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Building2, Users, ShieldCheck, Store, Package, Layers, UserCircle, Calculator, MapPin, Tablet, ClipboardList, BarChart3, Warehouse, Ticket, ChefHat } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Building2, Users, ShieldCheck, Store, Package, Layers, UserCircle, Calculator, MapPin, Tablet, ClipboardList, BarChart3, Warehouse, Ticket, ChefHat, Clock } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -43,6 +43,11 @@ export function AppSidebar() {
             icon: ClipboardList,
         },
         {
+            title: 'Customers',
+            href: '/pos/customers',
+            icon: Users,
+        },
+        {
             title: 'Reports',
             href: '/pos/reports',
             icon: BarChart3,
@@ -51,6 +56,11 @@ export function AppSidebar() {
             title: 'Discounts',
             href: '/pos/discounts',
             icon: Ticket,
+        },
+        {
+            title: 'HR',
+            href: '/hr',
+            icon: Clock,
         },
     ];
 

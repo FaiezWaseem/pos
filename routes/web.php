@@ -17,7 +17,9 @@ use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\Pos\OrderController;
 use App\Http\Controllers\Pos\ReportController;
 use App\Http\Controllers\Pos\DiscountController;
+use App\Http\Controllers\Pos\CustomerController;
 use App\Http\Controllers\Pos\KdsController;
+use App\Http\Controllers\HrController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -72,6 +74,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [PosController::class, 'index'])->name('index');
         Route::post('/order', [PosController::class, 'store'])->name('store');
         Route::get('/receipt/{order}', [PosController::class, 'receipt'])->name('receipt');
+        Route::resource('customers', CustomerController::class);
 
         // Order History
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
@@ -93,6 +96,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('kds')->name('kds.')->group(function () {
         Route::get('/', [KdsController::class, 'index'])->name('index');
         Route::patch('/{order}/status', [KdsController::class, 'updateStatus'])->name('status');
+    });
+
+    // HR Routes
+    Route::prefix('hr')->name('hr.')->group(function () {
+        Route::get('/', [HrController::class, 'index'])->name('index');
+        Route::post('/clock-in', [HrController::class, 'clockIn'])->name('clockIn');
+        Route::post('/clock-out', [HrController::class, 'clockOut'])->name('clockOut');
     });
 });
 
