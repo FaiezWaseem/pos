@@ -64,9 +64,12 @@ export type Order = {
     discount_amount: number;
     total: number;
     status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+    kitchen_status: 'pending' | 'preparing' | 'ready' | 'completed';
     order_type: 'dine_in' | 'takeaway' | 'delivery';
+    notes?: string | null;
     created_at: string;
     updated_at: string;
+    completed_at?: string | null;
     restaurant?: Restaurant;
     user?: User;
     customer?: Customer;

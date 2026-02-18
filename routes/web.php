@@ -17,6 +17,7 @@ use App\Http\Controllers\Pos\PosController;
 use App\Http\Controllers\Pos\OrderController;
 use App\Http\Controllers\Pos\ReportController;
 use App\Http\Controllers\Pos\DiscountController;
+use App\Http\Controllers\Pos\KdsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -86,6 +87,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/discounts/{discount}', [DiscountController::class, 'update'])->name('discounts.update');
         Route::delete('/discounts/{discount}', [DiscountController::class, 'destroy'])->name('discounts.destroy');
         Route::post('/discounts/apply', [DiscountController::class, 'apply'])->name('discounts.apply');
+    });
+
+    // KDS Routes
+    Route::prefix('kds')->name('kds.')->group(function () {
+        Route::get('/', [KdsController::class, 'index'])->name('index');
+        Route::patch('/{order}/status', [KdsController::class, 'updateStatus'])->name('status');
     });
 });
 

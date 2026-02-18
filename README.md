@@ -89,10 +89,13 @@ A full-featured, multi-tenant Point of Sale system built with **Laravel + Inerti
 - [x] `used_count` auto-incremented on successful order
 - [x] Discount ID + amount stored on order record
 
-### 🍳 Kitchen Display System (KDS)
-- [ ] Real-time order queue for kitchen staff
-- [ ] Mark items as preparing / ready
-- [ ] Order bump (dismiss completed orders)
+### 🍳 Kitchen Display System (KDS) ✅
+- [x] KDS dashboard with real-time polling (every 10s)
+- [x] `kitchen_status` (pending/preparing/ready) and `completed_at` tracking
+- [x] Kanban-style status cards with elapsed time timer
+- [x] Visual indicators for New (Yellow), Cooking (Orange), Ready (Green)
+- [x] Status transition buttons (Start Cooking -> Mark Ready -> Complete)
+- [x] Detail view of items, addons, sizes, and notes
 
 ### 👤 Customer Loyalty
 - [ ] Customer purchase history

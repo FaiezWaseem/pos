@@ -21,11 +21,21 @@ class Order extends Model
         'order_number',
         'order_type',
         'status',
+        'kitchen_status',
         'subtotal',
         'tax',
         'discount_amount',
         'total',
         'notes',
+        'completed_at',
+    ];
+
+    protected $casts = [
+        'completed_at' => 'datetime',
+        'discount_amount' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'tax' => 'decimal:2',
+        'total' => 'decimal:2',
     ];
 
     public function restaurant(): BelongsTo

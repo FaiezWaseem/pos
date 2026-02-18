@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Building2, Users, ShieldCheck, Store, Package, Layers, UserCircle, Calculator, MapPin, Tablet, ClipboardList, BarChart3, Warehouse, Ticket } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Building2, Users, ShieldCheck, Store, Package, Layers, UserCircle, Calculator, MapPin, Tablet, ClipboardList, BarChart3, Warehouse, Ticket, ChefHat } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -31,6 +31,11 @@ export function AppSidebar() {
             title: 'POS',
             href: '/pos',
             icon: Calculator,
+        },
+        {
+            title: 'Kitchen Display',
+            href: '/kds',
+            icon: ChefHat,
         },
         {
             title: 'Order History',
